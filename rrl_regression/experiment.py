@@ -13,35 +13,73 @@ from collections import defaultdict
 
 from rrl.utils import read_csv, DBEncoder
 from rrl.models import RRL
+import random
+import json
 
 DATA_DIR = './dataset'
 
 
 def get_data_loader(dataset, world_size, rank, batch_size, k=0, pin_memory=False, save_best=True):
+    save_path = os.path.join(DATA_DIR, dataset)
     data_path = os.path.join(DATA_DIR, dataset + '.data')
     info_path = os.path.join(DATA_DIR, dataset + '.info')
-    X_df, y_df, f_df, label_pos = read_csv(data_path, info_path, shuffle=True)
+    X_df, y_df, f_df, label_pos = read_csv(data_path, info_path, shuffle=False)
 
     db_enc = DBEncoder(f_df, discrete=False)
     db_enc.fit(X_df, y_df)
-
+    # print(X_df.values[0])
+    # print(y_df.values[0])
     X, y = db_enc.transform(X_df, y_df, normalized=True, keep_stat=True)
-
-    kf = KFold(n_splits=5, shuffle=True, random_state=0)
-    train_index, test_index = list(kf.split(X_df))[k]
-    X_train = X[train_index]
-    y_train = y[train_index]
-    X_test = X[test_index]
-    y_test = y[test_index]
-
+    # print(db_enc.mean.values)
+    # print(db_enc.std.values)
+    # print(X[0], y[0])
+    # exit()
+    
+    indexs = list(range(len(X)))
+    random.seed(666)
+    random.shuffle(indexs)
+    train_num, valid_num = (len(X)*6)//10, (len(X)*2)//10 
+    train_index = indexs[:train_num]
+    valid_index = indexs[train_num:train_num+valid_num]
+    test_index = indexs[train_num+valid_num:]
+    
+    if not os.path.exists(save_path):
+        os.makedirs(save_path, exist_ok=True)
+        np.save(os.path.join(save_path, 'X.npy'), X)
+        np.save(os.path.join(save_path, 'y.npy'), y)
+        json.dump({
+            "X_fname": db_enc.X_fname.tolist(),
+            "y_fname": db_enc.y_fname.tolist(),
+            "discrete_flen": db_enc.discrete_flen,
+            "continuous_flen": db_enc.continuous_flen,
+            "mean": db_enc.mean.values.tolist(),
+            "std": db_enc.std.values.tolist(),
+            "train_index": train_index,
+            "valid_index": valid_index,
+            "test_index": test_index,
+        }, open(os.path.join(save_path, "data_info.json"), "w"), indent=2)
+    
+    X_train, X_valid, X_test = X[train_index], X[valid_index], X[test_index]
+    y_train, y_valid, y_test = y[train_index], y[valid_index], y[test_index]
     train_set = TensorDataset(torch.tensor(X_train.astype(np.float32)), torch.tensor(y_train.astype(np.float32)))
+    valid_set = TensorDataset(torch.tensor(X_valid.astype(np.float32)), torch.tensor(y_valid.astype(np.float32)))
     test_set = TensorDataset(torch.tensor(X_test.astype(np.float32)), torch.tensor(y_test.astype(np.float32)))
+    
+    # kf = KFold(n_splits=5, shuffle=True, random_state=0)
+    # train_index, test_index = list(kf.split(X_df))[k]
+    # X_train = X[train_index]
+    # y_train = y[train_index]
+    # X_test = X[test_index]
+    # y_test = y[test_index]
 
-    train_len = int(len(train_set) * 0.95)
-    train_sub, valid_set = random_split(train_set, [train_len, len(train_set) - train_len])
+    # train_set = TensorDataset(torch.tensor(X_train.astype(np.float32)), torch.tensor(y_train.astype(np.float32)))
+    # test_set = TensorDataset(torch.tensor(X_test.astype(np.float32)), torch.tensor(y_test.astype(np.float32)))
 
-    if save_best:  # use validation set for model selections.
-        train_set = train_sub
+    # train_len = int(len(train_set) * 0.95)
+    # train_sub, valid_set = random_split(train_set, [train_len, len(train_set) - train_len])
+
+    # if save_best:  # use validation set for model selections.
+    #     train_set = train_sub
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_set, num_replicas=world_size, rank=rank)
 
@@ -158,8 +196,6 @@ def test_model(args):
             for rid in rule:
                 connected_rid[ln - abs(rid[0])].add(rid[1])
     logging.info('\n\t{} of RRL  Model: {}'.format(metric, np.log(edge_cnt)))
-
-
 
 def train_main(args):
     os.environ['MASTER_ADDR'] = args.master_address

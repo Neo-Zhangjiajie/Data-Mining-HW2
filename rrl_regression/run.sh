@@ -1,0 +1,1 @@
+python3 experiment.py -d red-wine-quality -bs 32 -s 1@16 -e401 -lrde 200 -lr 0.002 -ki 0 -i 0 -wd 0.0001 --print_rule

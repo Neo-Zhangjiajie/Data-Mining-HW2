@@ -22,7 +22,7 @@ class Net(nn.Module):
         self.right = right
         self.layer_list = nn.ModuleList([])
         self.use_skip = use_skip
-        self.t = nn.Parameter(torch.log(torch.tensor([temperature])))
+        # self.t = nn.Parameter(torch.log(torch.tensor([temperature])))
 
         prev_layer_dim = dim_list[0]
         for i in range(1, len(dim_list)):
@@ -102,7 +102,7 @@ class RRL:
         self.alpha =alpha
         self.beta = beta
         self.gamma = gamma
-        self.best_f1 = -1.
+        self.best_mse = 1e20
         self.best_loss = 1e20
 
         self.device_id = device_id
@@ -170,10 +170,11 @@ class RRL:
         if data_loader is None:
             raise Exception("Data loader is unavailable!")
 
-        accuracy_b = []
-        f1_score_b = []
-
-        criterion = nn.CrossEntropyLoss().cuda(self.device_id)
+        # accuracy_b = []
+        # f1_score_b = []
+        mse_b_list = []
+        # criterion = nn.CrossEntropyLoss().cuda(self.device_id)
+        criterion = nn.MSELoss().cuda(self.device_id)
         optimizer = torch.optim.Adam(self.net.parameters(), lr=lr, weight_decay=0.0)
 
         cnt = -1
@@ -195,8 +196,10 @@ class RRL:
                 optimizer.zero_grad()  # Zero the gradient buffers.
                 
                 # trainable softmax temperature
-                y_bar = self.net.forward(X) / torch.exp(self.net.t)
-                y_arg = torch.argmax(y, dim=1)
+                # y_bar = self.net.forward(X) / torch.exp(self.net.t)
+                # y_arg = torch.argmax(y, dim=1)
+                y_bar = self.net.forward(X).squeeze(-1)
+                y_arg = y
                 
                 loss_rrl = criterion(y_bar, y_arg) + weight_decay * self.l2_penalty()
                 
@@ -225,20 +228,22 @@ class RRL:
 
                 if self.is_rank0 and (cnt % (TEST_CNT_MOD * (1 if self.save_best else 10)) == 0):
                     if valid_loader is not None:
-                        acc_b, f1_b = self.test(test_loader=valid_loader, set_name='Validation')
+                        # acc_b, f1_b = self.test(test_loader=valid_loader, set_name='Validation')
+                        mse_b = self.test(test_loader=valid_loader, set_name='Validation')
                     else: # use the data_loader as the valid loader
-                        acc_b, f1_b = self.test(test_loader=data_loader, set_name='Training')
+                        # acc_b, f1_b = self.test(test_loader=data_loader, set_name='Training')
+                        mse_b = self.test(test_loader=data_loader, set_name='Training')
                     
-                    if self.save_best and (f1_b > self.best_f1 or (np.abs(f1_b - self.best_f1) < 1e-10 and self.best_loss > epoch_loss_rrl)):
-                        self.best_f1 = f1_b
+                    if self.save_best and mse_b < self.best_mse:
+                        self.best_mse = mse_b
                         self.best_loss = epoch_loss_rrl
                         self.save_model()
                     
-                    accuracy_b.append(acc_b)
-                    f1_score_b.append(f1_b)
+                    # accuracy_b.append(acc_b)
+                    # f1_score_b.append(mse_b)
+                    mse_b_list.append(mse_b)
                     if self.writer is not None:
-                        self.writer.add_scalar('Accuracy_RRL', acc_b, cnt // TEST_CNT_MOD)
-                        self.writer.add_scalar('F1_Score_RRL', f1_b, cnt // TEST_CNT_MOD)
+                        self.writer.add_scalar('MSE_RRL', mse_b, cnt // TEST_CNT_MOD)
             if self.is_rank0:
                 logging.info('epoch: {}, loss_rrl: {}'.format(epo, epoch_loss_rrl))
                 if self.writer is not None:
@@ -258,8 +263,9 @@ class RRL:
         for X, y in test_loader:
             y_list.append(y)
         y_true = torch.cat(y_list, dim=0)
-        y_true = y_true.cpu().numpy().astype(np.int)
-        y_true = np.argmax(y_true, axis=1)
+        # y_true = y_true.cpu().numpy().astype(np.int)
+        # y_true = np.argmax(y_true, axis=1)
+        y_true = y_true.cpu().numpy()
         data_num = y_true.shape[0]
 
         slice_step = data_num // 40 if data_num >= 40 else 1
@@ -268,25 +274,32 @@ class RRL:
         y_pred_b_list = []
         for X, y in test_loader:
             X = X.cuda(self.device_id, non_blocking=True)
-            output = self.net.forward(X)
+            output = self.net.forward(X).squeeze(-1)
             y_pred_b_list.append(output)
 
-        y_pred_b = torch.cat(y_pred_b_list).cpu().numpy()
-        y_pred_b_arg = np.argmax(y_pred_b, axis=1)
+
+        # y_pred_b = torch.cat(y_pred_b_list).cpu().numpy()
+        # y_pred_b_arg = np.argmax(y_pred_b, axis=1)
+        y_pred_b_arg = torch.cat(y_pred_b_list).cpu().numpy()
         logging.debug('y_rrl_: {} {}'.format(y_pred_b_arg.shape, y_pred_b_arg[:: slice_step]))
-        logging.debug('y_rrl: {} {}'.format(y_pred_b.shape, y_pred_b[:: (slice_step)]))
+        # logging.debug('y_rrl: {} {}'.format(y_pred_b.shape, y_pred_b[:: (slice_step)]))
 
-        accuracy_b = metrics.accuracy_score(y_true, y_pred_b_arg)
-        f1_score_b = metrics.f1_score(y_true, y_pred_b_arg, average='macro')
+        # accuracy_b = metrics.accuracy_score(y_true, y_pred_b_arg)
+        # f1_score_b = metrics.f1_score(y_true, y_pred_b_arg, average='macro')
 
+        # logging.info('-' * 60)
+        # logging.info('On {} Set:\n\tAccuracy of RRL  Model: {}'
+        #                 '\n\tF1 Score of RRL  Model: {}'.format(set_name, accuracy_b, f1_score_b))
+        # logging.info('On {} Set:\nPerformance of  RRL Model: \n{}\n{}'.format(
+        #     set_name, metrics.confusion_matrix(y_true, y_pred_b_arg), metrics.classification_report(y_true, y_pred_b_arg)))
+        # logging.info('-' * 60)
+
+        # return accuracy_b, f1_score_b
+        mse_b = metrics.mean_squared_error(y_true, y_pred_b_arg)
         logging.info('-' * 60)
-        logging.info('On {} Set:\n\tAccuracy of RRL  Model: {}'
-                        '\n\tF1 Score of RRL  Model: {}'.format(set_name, accuracy_b, f1_score_b))
-        logging.info('On {} Set:\nPerformance of  RRL Model: \n{}\n{}'.format(
-            set_name, metrics.confusion_matrix(y_true, y_pred_b_arg), metrics.classification_report(y_true, y_pred_b_arg)))
+        logging.info('On {} Set:\n\tMSE of RRL  Model: {}'.format(set_name, mse_b))
         logging.info('-' * 60)
-
-        return accuracy_b, f1_score_b
+        return mse_b
 
     def save_model(self):
         rrl_args = {'dim_list': self.dim_list, 'use_not': self.use_not, 'use_skip': self.use_skip, 'estimated_grad': self.estimated_grad, 
