@@ -3,8 +3,9 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import zscore
+import os
 
-dataset_name = 'WineQualityRed'
+dataset_name = 'OnlineNewsPopularity'
 
 # Function to read CSV and compute z-score normalization
 def normalize_csv(file_path):
@@ -66,3 +67,14 @@ normalized_df.to_csv(f"{dataset_name}-normalized.csv")
 sns.set()
 ax = sns.heatmap(heat_array)
 plt.savefig(f"{dataset_name}-corr-heatmap.png")
+
+# Split for train, dev, test
+if not os.path.exists(f"./split/{dataset_name}"):
+    os.mkdir(f"./split/{dataset_name}")
+train_df = normalized_df.sample(frac=0.6, random_state=0)
+dev_df = normalized_df.drop(train_df.index)
+dev_df = dev_df.sample(frac=0.5, random_state=0)
+test_df = normalized_df.drop(train_df.index).drop(dev_df.index)
+train_df.to_csv(f"./split/{dataset_name}/train.csv")
+dev_df.to_csv(f"./split/{dataset_name}/dev.csv")
+test_df.to_csv(f"./split/{dataset_name}/test.csv")
