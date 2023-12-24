@@ -35,6 +35,23 @@ def get_data_loader(dataset, world_size, rank, batch_size, k=0, pin_memory=False
     # print(X[0], y[0])
     # exit()
     
+    # kf = KFold(n_splits=5, shuffle=True, random_state=0)
+    # train_index, test_index = list(kf.split(X_df))[k]
+    # X_train = X[train_index]
+    # y_train = y[train_index]
+    # X_test = X[test_index]
+    # y_test = y[test_index]
+
+    # train_set = TensorDataset(torch.tensor(X_train.astype(np.float32)), torch.tensor(y_train.astype(np.float32)))
+    # test_set = TensorDataset(torch.tensor(X_test.astype(np.float32)), torch.tensor(y_test.astype(np.float32)))
+
+    # train_len = int(len(train_set) * 0.95)
+    # train_sub, valid_set = random_split(train_set, [train_len, len(train_set) - train_len])
+
+    # if save_best:  # use validation set for model selections.
+    #     train_set = train_sub
+
+    
     indexs = list(range(len(X)))
     random.seed(666)
     random.shuffle(indexs)
@@ -54,6 +71,8 @@ def get_data_loader(dataset, world_size, rank, batch_size, k=0, pin_memory=False
             "continuous_flen": db_enc.continuous_flen,
             "mean": db_enc.mean.values.tolist(),
             "std": db_enc.std.values.tolist(),
+            "y_mean": db_enc.y_mean.values.tolist(),
+            "y_std": db_enc.y_std.values.tolist(),
             "train_index": train_index,
             "valid_index": valid_index,
             "test_index": test_index,
@@ -64,22 +83,6 @@ def get_data_loader(dataset, world_size, rank, batch_size, k=0, pin_memory=False
     train_set = TensorDataset(torch.tensor(X_train.astype(np.float32)), torch.tensor(y_train.astype(np.float32)))
     valid_set = TensorDataset(torch.tensor(X_valid.astype(np.float32)), torch.tensor(y_valid.astype(np.float32)))
     test_set = TensorDataset(torch.tensor(X_test.astype(np.float32)), torch.tensor(y_test.astype(np.float32)))
-    
-    # kf = KFold(n_splits=5, shuffle=True, random_state=0)
-    # train_index, test_index = list(kf.split(X_df))[k]
-    # X_train = X[train_index]
-    # y_train = y[train_index]
-    # X_test = X[test_index]
-    # y_test = y[test_index]
-
-    # train_set = TensorDataset(torch.tensor(X_train.astype(np.float32)), torch.tensor(y_train.astype(np.float32)))
-    # test_set = TensorDataset(torch.tensor(X_test.astype(np.float32)), torch.tensor(y_test.astype(np.float32)))
-
-    # train_len = int(len(train_set) * 0.95)
-    # train_sub, valid_set = random_split(train_set, [train_len, len(train_set) - train_len])
-
-    # if save_best:  # use validation set for model selections.
-    #     train_set = train_sub
 
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_set, num_replicas=world_size, rank=rank)
 

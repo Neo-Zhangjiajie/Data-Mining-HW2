@@ -42,6 +42,8 @@ class DBEncoder:
         self.continuous_flen = None
         self.mean = None
         self.std = None
+        self.y_mean = None
+        self.y_std = None
 
     def split_data(self, X_df):
         discrete_data = X_df[self.f_df.loc[self.f_df[1] == 'discrete', 0]]
@@ -83,7 +85,6 @@ class DBEncoder:
         # y = self.label_enc.transform(y_df.values.reshape(-1, 1))
         # if self.y_one_hot:
         #     y = y.toarray()
-        y = y_df.values.reshape(-1)
 
         if not continuous_data.empty:
             # Use mean as missing value for continuous columns if we do not discretize them.
@@ -93,7 +94,11 @@ class DBEncoder:
                 if keep_stat:
                     self.mean = continuous_data.mean()
                     self.std = continuous_data.std()
+                    self.y_mean = y_df.mean()
+                    self.y_std = y_df.std()
                 continuous_data = (continuous_data - self.mean) / self.std
+                y_df = (y_df - self.y_mean) / self.y_std
+                
         if not discrete_data.empty:
             # One-hot encoding
             discrete_data = self.feature_enc.transform(discrete_data)
@@ -103,4 +108,7 @@ class DBEncoder:
                 X_df = pd.DataFrame(discrete_data.toarray())
         else:
             X_df = continuous_data
+            
+        y = y_df.values.reshape(-1)
+        
         return X_df.values, y

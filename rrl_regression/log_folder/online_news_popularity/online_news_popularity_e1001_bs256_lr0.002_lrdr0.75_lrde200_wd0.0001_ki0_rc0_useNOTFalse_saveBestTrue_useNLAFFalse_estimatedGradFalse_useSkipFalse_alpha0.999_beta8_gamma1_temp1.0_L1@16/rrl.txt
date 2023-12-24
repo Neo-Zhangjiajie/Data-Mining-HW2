@@ -1,0 +1,8 @@
+RID	shares(b=0.1445)	Support	Rule
+(-1, 2)	-0.1170	0.8875	kw_avg_avg <= 4844.739 & self_reference_min_shares <= 16048.552
+(-1, 5)	-0.0903	0.9196	kw_avg_avg <= 4844.739
+(-1, 0)	-0.0902	0.7632	kw_avg_avg <= 4844.739 & self_reference_min_shares <= 16048.552 & weekday_is_saturday <= 0.008 & is_weekend <= 0.238 & global_subjectivity <= 0.655
+(-1, 4)	0.0551	0.4762	self_reference_avg_sharess > 793.764 & data_channel_is_world <= 0.884 & LDA_01 <= 0.208
+(-1, 3)	0.0505	0.7814	data_channel_is_world <= 0.884
+(-1, 1)	0.0344	0.5973	abs_title_subjectivity > 0.309
+############################################################
