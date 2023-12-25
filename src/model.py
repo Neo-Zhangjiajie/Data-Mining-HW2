@@ -6,6 +6,7 @@ from sklearn.linear_model import LogisticRegression  # 导入逻辑回归类
 import numpy as np  # 导入numpy库
 from src.dataset import load_data  # 假设这个函数用于获取数据集
 import pandas as pd  # 导入pandas库
+from xgboost import XGBRegressor
 
 class SimpleLinearRegression:
     def __init__(self):
@@ -43,7 +44,7 @@ def train_model(X_train, y_train, X_test, y_test, model_class):
 
 def train_all(datasets):
     results = {"Dataset": [], "SVM": [], "Decision Tree": [], "Random Forest": [],
-               "Simple Linear Regression": []}
+               "Simple Linear Regression": [], "XGBoost": []}
     for dataset in datasets:
         X_train, X_test, y_train, y_test = load_data(dataset)
 
@@ -60,8 +61,13 @@ def train_all(datasets):
         rf_mse = train_model(X_train, y_train, X_test, y_test, RandomForestRegressor)
         results["Random Forest"].append(rf_mse)
 
+        # Linear Regression
         lr_mse = train_linear_regression_model(X_train, y_train, X_test, y_test)
         results["Simple Linear Regression"].append(lr_mse)
+        
+        # XGBoost
+        xgb_mse = train_model(X_train, y_train, X_test, y_test, XGBRegressor)
+        results["XGBoost"].append(xgb_mse)
 
     # 将结果转换为DataFrame并打印
     results_df = pd.DataFrame(results)
