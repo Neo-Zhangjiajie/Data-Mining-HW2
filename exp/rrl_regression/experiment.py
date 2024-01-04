@@ -171,7 +171,7 @@ def test_model(args):
     rrl = load_model(args.model, args.device_ids[0], log_file=args.test_res, distributed=False)
     dataset = args.data_set
     db_enc, train_loader, _, test_loader = get_data_loader(dataset, 4, 0, args.batch_size, args.ith_kfold, save_best=False)
-    rrl.test(test_loader=test_loader, set_name='Test')
+    rrl.test(test_loader=test_loader, set_name='Test', _dataset_name=args.data_set)
     if args.print_rule:
         with open(args.rrl_file, 'w') as rrl_file:
             rule2weights = rrl.rule_print(db_enc.X_fname, db_enc.y_fname, train_loader, file=rrl_file, mean=db_enc.mean, std=db_enc.std)

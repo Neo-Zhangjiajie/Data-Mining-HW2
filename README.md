@@ -19,6 +19,8 @@ total sulfur dioxide数值可能>100。这会使linear regression、logistic reg
 4. **数据冗余**
 
     11个属性间的相关系数热力图统计如下：
-    ![Alt text](./figs/corr-heatmap.png)
+    ![Alt text](./figs/WineQualityRed-corr-heatmap.png)
     
     不存在相关系数绝对值⼤于0.75的属性，可以认为数据冗余程度低。
+
+

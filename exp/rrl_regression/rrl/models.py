@@ -255,7 +255,7 @@ class RRL:
         return epoch_histc
 
     @torch.no_grad()
-    def test(self, test_loader=None, set_name='Validation'):
+    def test(self, test_loader=None, set_name='Validation', _dataset_name=None):
         if test_loader is None:
             raise Exception("Data loader is unavailable!")
         
@@ -279,26 +279,49 @@ class RRL:
 
 
         # y_pred_b = torch.cat(y_pred_b_list).cpu().numpy()
-        # y_pred_b_arg = np.argmax(y_pred_b, axis=1)
-        y_pred_b_arg = torch.cat(y_pred_b_list).cpu().numpy()
-        logging.debug('y_rrl_: {} {}'.format(y_pred_b_arg.shape, y_pred_b_arg[:: slice_step]))
+        # y_pred = np.argmax(y_pred_b, axis=1)
+        y_pred = torch.cat(y_pred_b_list).cpu().numpy()
+        logging.debug('y_rrl_: {} {}'.format(y_pred.shape, y_pred[:: slice_step]))
         # logging.debug('y_rrl: {} {}'.format(y_pred_b.shape, y_pred_b[:: (slice_step)]))
 
-        # accuracy_b = metrics.accuracy_score(y_true, y_pred_b_arg)
-        # f1_score_b = metrics.f1_score(y_true, y_pred_b_arg, average='macro')
+        # accuracy_b = metrics.accuracy_score(y_true, y_pred)
+        # f1_score_b = metrics.f1_score(y_true, y_pred, average='macro')
 
         # logging.info('-' * 60)
         # logging.info('On {} Set:\n\tAccuracy of RRL  Model: {}'
         #                 '\n\tF1 Score of RRL  Model: {}'.format(set_name, accuracy_b, f1_score_b))
         # logging.info('On {} Set:\nPerformance of  RRL Model: \n{}\n{}'.format(
-        #     set_name, metrics.confusion_matrix(y_true, y_pred_b_arg), metrics.classification_report(y_true, y_pred_b_arg)))
+        #     set_name, metrics.confusion_matrix(y_true, y_pred), metrics.classification_report(y_true, y_pred)))
         # logging.info('-' * 60)
 
         # return accuracy_b, f1_score_b
-        mse_b = metrics.mean_squared_error(y_true, y_pred_b_arg)
+        mse_b = metrics.mean_squared_error(y_true, y_pred)
+        rmse_b = metrics.mean_squared_error(y_true, y_pred, squared=False)
+        r2_b = metrics.r2_score(y_true, y_pred)
+        if _dataset_name != None:
+            import matplotlib.pyplot as plt
+
+            # Plotting the correlation
+            plt.figure(figsize=(8, 6)) 
+            _y_true = y_true[(y_true <= 3) & (y_true >= -3)]
+            _y_pred = y_pred[(y_true <= 3) & (y_true >= -3)]
+            print(y_true.shape, y_pred.shape)
+            print(_y_true.shape, _y_pred.shape)
+            plt.scatter(_y_true, _y_pred, color='blue')
+            plt.title(f"{_dataset_name}")
+            plt.xlabel('y_true')
+            plt.ylabel('y_pred')
+            plt.grid(True)
+            # plt.plot([_y_true.min(), _y_true.max()], [_y_true.min(), _y_true.max()], 'r')  # adding a reference line
+            plt.savefig(f"../../figs/correlation_{_dataset_name}_rrl.png")
+
+        
         logging.info('-' * 60)
         logging.info('On {} Set:\n\tMSE of RRL  Model: {}'.format(set_name, mse_b))
+        logging.info('On {} Set:\n\tRMSE of RRL  Model: {}'.format(set_name, rmse_b))
+        logging.info('On {} Set:\n\tR2 of RRL  Model: {}'.format(set_name, r2_b))
         logging.info('-' * 60)
+        
         return mse_b
 
     def save_model(self):
